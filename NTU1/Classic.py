@@ -14,6 +14,24 @@ class Classic:
         self.laneRight = []
         self.laneLeft = []
         self.scan = 4
+        self.lowWhite = (0,0,180)
+        self.upWhite = (179,30,255)
+
+    def whiteLane(self, src):
+        hsv = cv2.cvtColor(src, cv2.COLOR_BGR2HSV)
+        bin =  cv2.inRange(hsv, self.lowWhite, self.upWhite)
+        bin2 = bin.copy()
+        dist = cv2.distanceTransform(bin, cv2.DIST_L2, 3)
+        cv2.normalize(dist, dist, 0, 1.0, cv2.NORM_MINMAX)
+        cv2.imshow("dist", dist)
+        _, dist = cv2.threshold(dist,0.1, 1.0, cv2.THRESH_BINARY)
+        cv2.imshow("dist2", dist)
+        dist_8u = dist.astype('uint8')
+        _, contours, _ = cv2.findContours(dist_8u, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cv2.drawContours(bin2, contours, -1, 0, -1)
+        cv2.imshow("bin2", bin2)
+        return contours
+
 
     def reduceNoise(self, src):
         dst = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
@@ -23,6 +41,8 @@ class Classic:
         dst = cv2.Laplacian(gray, cv2.CV_32F, ksize = self.kernel_size)
         dst = cv2.convertScaleAbs(dst)
         ret, bin = cv2.threshold(dst, self.thres_val, 255, cv2.THRESH_BINARY)
+        cv2.imshow("bin", bin)
+
         return bin
 
     def View(self, src):
@@ -99,6 +119,7 @@ class Classic:
 
 
     def update(self, src):
+        cnts = self.whiteLane(src)
         bin = self.reduceNoise(src).copy()
         bin = self.LaplacianEdgeDetect(bin)
         bin = self.View(bin).copy()
@@ -112,21 +133,7 @@ class Classic:
 
 classic = Classic()
 
-cap = cv2.VideoCapture(r'D:\\CDS\\DiRa_CDSNTU1\\PyCDS\\output.avi')
-while(cap.isOpened()):
-    # Capture frame-by-frame
-    ret, frame = cap.read()
-    if ret == False:
-        break
-    frame = cv2.resize(frame, (320, 240))
-    classic.update(frame)
-    for i in range(0, len(classic.laneLeft)):
-        cv2.circle(frame,classic.laneLeft[i], 5, (0,0,255))
-    for i in range(0, len(classic.laneRight)):
-        cv2.circle(frame, classic.laneRight[i], 5, (0, 255, 0))
-    cv2.imshow("",frame)
-    if cv2.waitKey(1) & 0xFF == ord('q'):
-        break
+print("CLASSIC LANE READY")
 
 
 

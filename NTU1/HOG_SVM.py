@@ -54,7 +54,7 @@ class HOG_SVM:
         return 0
 
 
-hog_svm = HOG_SVM('model/svm_4.xml', 'model/svm_6.xml')
+hog_svm = HOG_SVM('model/svm_6.xml', 'model/svm_4.xml')
 print("HOG WITH SVM READY")
 
 

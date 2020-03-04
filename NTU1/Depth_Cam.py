@@ -1,8 +1,9 @@
-#!/usr/bin/env python
+#!/usr/bin/python2
 import cv2
 import numpy as np
-
-#import rospy
+from sensor_msgs.msg import CompressedImage, Image
+from cv_bridge import CvBridge, CvBridgeError
+import rospy
 
 
 class DepthProcessor:
@@ -12,7 +13,11 @@ class DepthProcessor:
         self.counter = 0
         self.area_130 = 130
         self.area_110 = 110
+        self.lowDis = 700
+        self.highDis = 800
         self.middle_screen = (140, 180)
+	self.bridge = CvBridge()
+	self.depth_sub = rospy.Subscriber("/camera/depth/image_raw", Image, callback=self.callback_detect_obstacle, queue_size=1)
 
     def remove_ground(self, gray_img, column, row, n_row, lower, upper):
         """
@@ -114,7 +119,7 @@ class DepthProcessor:
                 danger_zone = (x - self.area_130, x + w + self.area_130)
         return danger_zone
 
-    def detect_obstacle(self, img_np, n_row=2, lower=15000, upper=1000, min_width=40, min_height=40):
+    def detect_obstacle_without_danger_zone(self, img_np, n_row=2, lower=15000, upper=1000, min_width=40, min_height=40):
         """
         Detect obstacle
         :param img_np: input image in gray scale 16 bit 1 channel
@@ -130,9 +135,9 @@ class DepthProcessor:
         """
         # resize
         gray_img = self.resize_np(img_np, 0.125)
-        # cv2.imshow('src', gray_img)
+        #cv2.imshow('src', gray_img)
 
-        # cv2.waitKey(1)
+        #cv2.waitKey(1)
 
         # CLOSE
         kernel_close = np.ones((3, 3))
@@ -157,16 +162,17 @@ class DepthProcessor:
         # Open
         kernel_open = np.ones((3, 3), np.uint8)
         gray_img = cv2.morphologyEx(gray_img, cv2.MORPH_OPEN, kernel_open)
-
+	
         # resize
         gray_img = self.resize_np(gray_img, 8)
         gray_uint8 = cv2.convertScaleAbs(gray_img)
-        _, contours, hierarchy = cv2.findContours(gray_uint8, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+	cv2.imshow("Gray", gray_uint8)
+        contours = cv2.findContours(gray_uint8, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)[-2]
 
         img_rgb_np = cv2.cvtColor(img_np, cv2.COLOR_GRAY2RGB)
         # img_rgb_np = cv2.cvtColor(gray_img, cv2.COLOR_GRAY2RGB)
-        # cv2.drawContours(img_rgb_np, contours, -1, (MAX_UINT16, 0, 0), 2)
-        # cv2.imshow('contours', img_rgb_np)
+        #cv2.drawContours(img_rgb_np, contours, -1, (self.MAX_UINT16, 0, 0), 2)
+        #cv2.imshow('contours', img_rgb_np)
 
         bbox_left = []
         bbox_right = []
@@ -190,17 +196,17 @@ class DepthProcessor:
 
         return bbox_left, bbox_right
 
-    def combine(self, img_np):
+    def detect_obstacle_with_danger_zone(self, img_np):
         """
-        Return the final result to control car after combining module detect-obstacle and find-danger-zone
-        :param img_np:
+        Return the final result to control car after combining module detect-obstacle-without-danger-zone and find-danger-zone
+        :param img_np: numpy depth image (grayscale)
         :return: tuple danger zone (a,b)
         # (0,0) : No obstacle
         # (-1, middle_point) : 2 obstacles
         # (n,m) : left_edge, right_edge of obstacle
         """
 
-        bbox_left, bbox_right = self.detect_obstacle(img_np)
+        bbox_left, bbox_right = self.detect_obstacle_without_danger_zone(img_np)
         obstacle_left = obstacle_right = 0
         if len(bbox_left) > 0:
             obstacle_left = self.find_nearest_object(bbox_left)
@@ -210,3 +216,48 @@ class DepthProcessor:
         danger_zone = self.find_danger_zone(obstacle_left, obstacle_right)
 
         return danger_zone
+    def callback_detect_obstacle(self, data):
+
+        try:
+            image_np = self.bridge.imgmsg_to_cv2(data)
+
+	    image_np_origin = np.copy(image_np)
+	    binaryDepth = self.binaryDepth(image_np_origin)
+		
+            image_np = cv2.resize(image_np, (320, 240))
+	    
+            image_np = image_np[100:, :]
+		
+            cv2.imshow('img_depth', image_np)
+            
+            self.danger_zone = self.detect_obstacle_with_danger_zone(image_np * 10)
+
+            print(self.danger_zone)
+            cv2.waitKey(1)
+        except CvBridgeError as e:
+            print(e)
+
+    def binaryDepth(self, image_np):
+        #img = (image_np*1.0/2**8).astype(np.uint8)
+        print(image_np[320,240])
+	img = cv2.inRange(image_np, (self.lowDis), (self.highDis))
+        cv2.imshow("binary depth", img)
+        return img
+
+    def grayDepth(self, image_np):
+        img = (image_np*1.0/2**8).astype(np.uint8)
+        rev_img = 255 - img
+        cv2.imshow("rev img", rev_img)
+    
+    def get_sign_distance(self, depth, location):
+        x,y,w,h = location
+	distance= np.mean(depth[y+h//2-5:y+h//2+5, x+w//2-5:x+w//2+5])
+	if distance > 250:
+	   return 0
+   	return distance
+
+
+if __name__ == '__main__':
+    rospy.init_node('depth', anonymous=True)
+    dp = DepthProcessor()
+    rospy.spin()

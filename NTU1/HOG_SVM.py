@@ -43,7 +43,7 @@ class HOG_SVM:
                     flagStop = self.SVM2Layer(flag, crop)
                     if(flag != 0):
                         self.sign = img[max(0, y - 5):min(y + h + 5, img_h), max(0, x - 5): min(x + w + 5, img_w)]
-                        return flag, flagStop, (x, y, h, w)
+                        return flag, flagStop, (x, y, w, h)
         return 0,0, (0,0,0,0)
 
     def SVM2Layer(self, flagSign, img):

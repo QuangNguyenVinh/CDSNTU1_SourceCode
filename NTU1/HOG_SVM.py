@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+
 class HOG_SVM:
     def __init__(self, svmModel, svmModel2):
         self.MIN_AREA = 0.015

@@ -35,5 +35,4 @@ def Advance_lane(img):
 
 frame = np.zeros((480, 640, 3))
 center = Advance_lane(frame)
-frame = cv2.resize(frame, (480,320))
 print("ADVANCE LANE READY")

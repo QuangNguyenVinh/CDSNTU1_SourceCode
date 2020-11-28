@@ -52,15 +52,16 @@ class Classic:
 
     def ignoreMid(self, x):
         return self.a * x + self.b
-
+    def ignoreMidR(self, x):
+        return self.a * x * -1. + self.b
     def findLane(self, bin):
         self.laneLeft = []
         self.laneRight = []
         left, right = 0, 0
         midLane = bin.shape[1] // 2 #W/2
-        start = bin.shape[0] - 50
-        high = start
-        while(high > 50):
+        start = 50
+        high = bin.shape[0] - start
+        while(high > start):
 
             i = int(midLane - self.ignoreMid(high))
             while(i > self.scan):
@@ -82,7 +83,7 @@ class Classic:
 
 
 
-            j = int(midLane + self.ignoreMid(high))
+            j = int(midLane + self.ignoreMidR(high))
             while(j < bin.shape[1] - self.scan):
                 try:
                     scan = bin[high : high + self.scan, j : j + self.scan]
@@ -111,7 +112,7 @@ class Classic:
             if (left == 0):
                 left = int(midLane - self.ignoreMid(high) * 2)
             if (right == 0):
-                right = int(midLane + self.ignoreMid(high) * 2)
+                right = int(midLane + self.ignoreMidR(high) * 2)
 
             midLane = int(midLane * self.alpha + ((left + right) / 2) * (1 - self.alpha))
 
